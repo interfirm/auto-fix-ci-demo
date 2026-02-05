@@ -220,15 +220,18 @@ jobs:
         if: steps.get_diff.outputs.diff_size != '0'
         id: review
         run: |
-          # Use embedded reviewer CLI if available, fallback to script
-          if [ -x ./bin/reviewer ]; then
-            ./bin/reviewer diff.txt > review.md
+          # Use demo-reviewer binary if available, fallback to Gemini script
+          if [ -x ./bin/demo-reviewer-20260205 ]; then
+            ./bin/demo-reviewer-20260205 diff.txt > review.md
           else
             chmod +x ./scripts/ai-review.sh
             ./scripts/ai-review.sh diff.txt review.md
           fi
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REVIEWER_SALT: ${{ secrets.REVIEWER_SALT }}
 
       - name: Post Review Comment
         if: steps.get_diff.outputs.diff_size != '0'
