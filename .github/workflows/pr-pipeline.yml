@@ -191,7 +191,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: auto-fix by AI (attempt ${{ steps.check_attempts.outputs.attempt_count }})"
+          git commit -m "fix: auto-fix by Claude Haiku 4.5 (attempt ${{ steps.check_attempts.outputs.attempt_count }})"
           git push
           echo "fix_applied=true" >> $GITHUB_OUTPUT
 
@@ -267,7 +267,7 @@ jobs:
             ${review}
 
             ---
-            *Powered by Gemini API*
+            *Powered by Claude Opus 4 + OpenAI Embedding*
             `;
 
             if (botComment) {
@@ -311,7 +311,7 @@ jobs:
               status = '✅ All checks passed';
               emoji = '🎉';
             } else if (autoFix === 'success') {
-              status = '🔄 Auto-fix applied, waiting for re-run';
+              status = '🔄 Auto-fix applied by Claude Haiku 4.5, waiting for re-run';
               emoji = '🤖';
             } else {
               status = '❌ Checks failed, manual fix required';
@@ -326,7 +326,8 @@ jobs:
             | TypeCheck | ${{ needs.quality.outputs.typecheck_status == 'success' && '✅' || '❌' }} |
             | Lint | ${{ needs.quality.outputs.lint_status == 'success' && '✅' || '❌' }} |
             | Test | ${{ needs.quality.outputs.test_status == 'success' && '✅' || '❌' }} |
-            | AI Review | ${aiReview === 'success' ? '✅' : aiReview === 'skipped' ? '⏭️' : '❌'} |
+            | Auto Fix (Haiku 4.5) | ${autoFix === 'success' ? '✅' : autoFix === 'skipped' ? '⏭️' : '❌'} |
+            | AI Review (Opus 4) | ${aiReview === 'success' ? '✅' : aiReview === 'skipped' ? '⏭️' : '❌'} |
 
             **Status**: ${status}
 
