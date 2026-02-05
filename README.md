@@ -57,7 +57,7 @@ PRごとにpreview環境を自動割当し、複数PRの並列検証を可能に
 | 言語           | TypeScript                       |
 | テスト         | Vitest                           |
 | AI (レビュー)  | Claude Opus 4 + OpenAI Embedding |
-| AI (修正)      | Gemini                           |
+| AI (修正)      | Claude Haiku 4.5                 |
 | CI/CD          | GitHub Actions                   |
 
 ## Contributing

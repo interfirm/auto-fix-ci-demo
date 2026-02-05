@@ -1,13 +1,13 @@
 #!/bin/bash
-# AI Code Fix using Gemini API
+# AI Code Fix using Claude Haiku API
 # Usage: ./scripts/ai-fix.sh <error_log_file>
 
 set -e
 
 ERROR_LOG="${1:-/dev/stdin}"
 
-if [ -z "$GEMINI_API_KEY" ]; then
-  echo "Error: GEMINI_API_KEY is not set" >&2
+if [ -z "$ANTHROPIC_API_KEY" ]; then
+  echo "Error: ANTHROPIC_API_KEY is not set" >&2
   exit 1
 fi
 
@@ -23,6 +23,21 @@ if [ -z "$ERROR_CONTENT" ]; then
   exit 0
 fi
 
+# ============================================
+# Guard: Extract allowed file paths from errors
+# ============================================
+# Only .ts/.tsx/.js/.jsx files mentioned in error logs are allowed
+ALLOWED_FILES=$(echo "$ERROR_CONTENT" | grep -oE '[a-zA-Z0-9_./-]+\.(ts|tsx|js|jsx)' | sort -u)
+
+if [ -z "$ALLOWED_FILES" ]; then
+  echo "No source files found in error logs"
+  exit 0
+fi
+
+echo "=== Allowed files for modification ==="
+echo "$ALLOWED_FILES"
+echo "======================================="
+
 # Truncate if too large
 MAX_CHARS=20000
 if [ ${#ERROR_CONTENT} -gt $MAX_CHARS ]; then
@@ -34,14 +49,17 @@ fi
 # Escape for JSON
 ERROR_ESCAPED=$(echo "$ERROR_CONTENT" | jq -Rs .)
 
-# Create prompt for fix generation
-PROMPT=$(cat <<'EOF'
-You are an expert TypeScript/React developer. Analyze the following error logs and generate fixes.
+# Create prompt — strict instructions to prevent over-fixing
+PROMPT=$(cat <<'PROMPT_EOF'
+You are a TypeScript/React error fixer. Your ONLY job is to fix the specific errors shown in the error logs.
 
-## Instructions:
-1. Analyze each error carefully
-2. For each file with errors, output the COMPLETE fixed file content
-3. Use the exact format below for each fix
+## CRITICAL RULES:
+1. ONLY modify files that appear in the error logs
+2. ONLY fix the specific errors mentioned - do NOT refactor, improve, or change anything else
+3. NEVER modify package.json, tsconfig.json, .eslintrc, or any config file
+4. NEVER add new dependencies or imports that weren't already there
+5. Keep the EXACT same code style, formatting, and structure
+6. If unsure about a fix, skip that file entirely
 
 ## Output Format (MUST follow exactly):
 For each file that needs fixing:
@@ -52,54 +70,51 @@ path: <relative file path>
 <complete fixed file content>
 ===CONTENT_END===
 
-## Rules:
-- Output the COMPLETE file content, not just the changed parts
-- Do not add explanations between files
-- If you cannot determine the fix, skip that file
-- Keep existing code style and formatting
-- Only fix the actual errors, don't refactor unrelated code
-EOF
+Output ONLY the file blocks above. No explanations, no markdown, no commentary.
+PROMPT_EOF
 )
 
-# Build request body
+# Build request body for Claude Haiku
 REQUEST_BODY=$(jq -n \
   --arg prompt "$PROMPT" \
   --argjson errors "$ERROR_ESCAPED" \
   '{
-    "contents": [{
-      "parts": [{
-        "text": ($prompt + "\n\n## Error Logs:\n```\n" + $errors + "\n```")
-      }]
-    }],
-    "generationConfig": {
-      "temperature": 0.1,
-      "maxOutputTokens": 8192
-    }
+    "model": "claude-haiku-4-5-20251001",
+    "max_tokens": 8192,
+    "messages": [{
+      "role": "user",
+      "content": ($prompt + "\n\n## Error Logs:\n```\n" + $errors + "\n```")
+    }]
   }')
 
-# Call Gemini API
+# Call Claude API
 RESPONSE=$(curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+  "https://api.anthropic.com/v1/messages" \
   -H "Content-Type: application/json" \
+  -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+  -H "anthropic-version: 2023-06-01" \
   -d "$REQUEST_BODY")
-
-# Extract fix content
-FIX_CONTENT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // ""')
 
 # Check for API errors
 if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
   ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message')
-  echo "Error: Gemini API error - $ERROR_MSG" >&2
+  echo "Error: Claude API error - $ERROR_MSG" >&2
   exit 1
 fi
+
+# Extract fix content
+FIX_CONTENT=$(echo "$RESPONSE" | jq -r '.content[0].text // ""')
 
 if [ -z "$FIX_CONTENT" ]; then
   echo "No fixes generated"
   exit 0
 fi
 
-# Parse and apply fixes
+# ============================================
+# Parse and apply fixes (with allowlist guard)
+# ============================================
 APPLIED_COUNT=0
+BLOCKED_COUNT=0
 
 while IFS= read -r line; do
   if [[ "$line" == "===FILE_START===" ]]; then
@@ -114,12 +129,19 @@ while IFS= read -r line; do
     CONTENT=""
   elif [[ "$line" == "===CONTENT_END===" ]]; then
     IN_CONTENT=false
-    if [ -n "$CURRENT_FILE" ] && [ -f "$CURRENT_FILE" ]; then
-      echo "$CONTENT" > "$CURRENT_FILE"
-      echo "✅ Fixed: $CURRENT_FILE"
-      ((APPLIED_COUNT++))
+
+    # Guard: only apply if file is in the allowlist
+    if [ -n "$CURRENT_FILE" ] && echo "$ALLOWED_FILES" | grep -qF "$CURRENT_FILE"; then
+      if [ -f "$CURRENT_FILE" ]; then
+        echo "$CONTENT" > "$CURRENT_FILE"
+        echo "✅ Fixed: $CURRENT_FILE"
+        ((APPLIED_COUNT++))
+      else
+        echo "⚠️ Skipped (file not found): $CURRENT_FILE"
+      fi
     elif [ -n "$CURRENT_FILE" ]; then
-      echo "⚠️ Skipped (file not found): $CURRENT_FILE"
+      echo "🚫 Blocked (not in error logs): $CURRENT_FILE"
+      ((BLOCKED_COUNT++))
     fi
   elif [ "$IN_CONTENT" = true ]; then
     if [ -z "$CONTENT" ]; then
@@ -132,7 +154,7 @@ $line"
 done <<< "$FIX_CONTENT"
 
 echo ""
-echo "Applied $APPLIED_COUNT fix(es)"
+echo "Applied $APPLIED_COUNT fix(es), blocked $BLOCKED_COUNT file(s)"
 
 if [ $APPLIED_COUNT -gt 0 ]; then
   exit 0
