@@ -214,6 +214,17 @@ jobs:
     if: needs.quality.outputs.has_errors == 'false'
     runs-on: ubuntu-latest
     steps:
+      - name: Notify Review Starting
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🔍 全チェック通過 — AI Code Review (Claude Opus 4) を開始します。約1分後にレビュー結果がコメントされます。'
+            });
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
