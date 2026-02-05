@@ -1,104 +1,81 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 
-// any だらけの型定義
-interface UserCardProps {
-  user: any
-  onDelete: any
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
 }
 
-export default function UserCard({ user, onDelete }: UserCardProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(user.name)
+interface UserCardProps {
+  user: User;
+  onSelect?: (user: User) => void;
+}
 
-  const handleDelete = () => {
-    onDelete(user.id)
-  }
+export function UserCard({ user, onSelect }: UserCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
 
-  // any を返す関数
-  const getRoleBadgeColor = (role: any): any => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-500'
-      case 'editor':
-        return 'bg-blue-500'
-      case 'viewer':
-        return 'bg-gray-500'
-      default:
-        return 'bg-gray-300'
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(user);
     }
-  }
+  };
 
-  // any でキャスト
-  const formattedDate = (user as any).createdAt?.toISOString?.() ?? String(user.createdAt)
-
-  // エラーハンドリングなし
-  const handleSave = async () => {
-    const res = await fetch('/api/users/' + user.id, {
-      method: 'PATCH',
-      body: JSON.stringify({ name: editName }),
-    })
-    const data = await res.json()
-    console.log(data)
-    setIsEditing(false)
-  }
+  const initials = user.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <div
-      style={{
-        border: '1px solid #ccc',
-        padding: '16px',
-        borderRadius: '8px',
-        marginBottom: '12px',
+      className="relative flex flex-col gap-2 rounded-lg border border-gray-200 p-4 shadow-sm transition-shadow hover:shadow-md"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleClick();
+        }
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3>{user.name}</h3>
-        <span
-          style={{
-            backgroundColor: getRoleBadgeColor(user.role),
-            color: 'white',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
-          }}
-        >
-          {user.role}
-        </span>
-      </div>
-      <p style={{ color: '#666', margin: '4px 0' }}>{user.email}</p>
-      <p style={{ color: '#999', fontSize: '12px' }}>Joined: {formattedDate}</p>
-      <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          style={{ padding: '4px 12px', cursor: 'pointer' }}
-        >
-          {isEditing ? 'Cancel' : 'Edit'}
-        </button>
-        <button
-          onClick={handleDelete}
-          style={{ padding: '4px 12px', cursor: 'pointer', color: 'red' }}
-        >
-          Delete
-        </button>
-      </div>
-      {isEditing && (
-        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-          <input
-            type="text"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: '4px' }}
+      <div className="flex items-center gap-3">
+        {user.avatar ? (
+          <img
+            src={user.avatar}
+            alt={user.name}
+            className="h-12 w-12 rounded-full object-cover"
           />
-          <button
-            onClick={handleSave}
-            style={{ padding: '4px 12px', cursor: 'pointer', color: 'green' }}
-          >
-            Save
-          </button>
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500 text-white">
+            <span className="text-sm font-semibold">{initials}</span>
+          </div>
+        )}
+        <div className="flex flex-col gap-1">
+          <h3 className="font-semibold text-gray-900">{user.name}</h3>
+          <p className="text-sm text-gray-600">{user.email}</p>
+        </div>
+      </div>
+
+      {isHovered && (
+        <div className="rounded bg-blue-50 p-3">
+          <p className="text-xs text-gray-700">
+            Click to select this user
+          </p>
         </div>
       )}
     </div>
-  )
+  );
 }
