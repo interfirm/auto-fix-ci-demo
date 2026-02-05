@@ -28,3 +28,17 @@ export const brokenApiCall = async (data: any) => {
 
   return await result.json().then((d: any) => d)
 }
+
+// 型エラー: numberにstring代入
+export const brokenTypes = (): number => {
+  const x: number = "hello"
+  return x
+}
+
+// 未使用変数
+export const unusedVars = () => {
+  const a = 1
+  const b = 2
+  const c = 3
+  return a
+}
