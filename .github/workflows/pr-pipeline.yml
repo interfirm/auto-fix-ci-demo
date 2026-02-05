@@ -71,19 +71,12 @@ jobs:
       - name: Check for Errors
         id: check_errors
         run: |
-          echo "=== Step Outcomes ==="
-          echo "TypeCheck: ${{ steps.typecheck.outcome }}"
-          echo "Lint: ${{ steps.lint.outcome }}"
-          echo "Test: ${{ steps.test.outcome }}"
-          echo "===================="
           if [ "${{ steps.typecheck.outcome }}" == "failure" ] || \
              [ "${{ steps.lint.outcome }}" == "failure" ] || \
              [ "${{ steps.test.outcome }}" == "failure" ]; then
             echo "has_errors=true" >> $GITHUB_OUTPUT
-            echo "Result: has_errors=true"
           else
             echo "has_errors=false" >> $GITHUB_OUTPUT
-            echo "Result: has_errors=false"
           fi
 
       - name: Upload Error Logs
