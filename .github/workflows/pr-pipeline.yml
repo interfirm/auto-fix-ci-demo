@@ -197,7 +197,9 @@ jobs:
 
       - name: Add Attempt Label
         if: steps.apply_fix.outputs.fix_applied == 'true'
+        continue-on-error: true
         run: |
+          gh label create "auto-fix-attempt-${{ steps.check_attempts.outputs.attempt_count }}" --color "FFA500" 2>/dev/null || true
           gh pr edit ${{ github.event.pull_request.number }} \
             --add-label "auto-fix-attempt-${{ steps.check_attempts.outputs.attempt_count }}"
         env:
@@ -379,6 +381,7 @@ jobs:
 
       - name: Add Ready Label
         run: |
+          gh label create "ready-to-merge" --color "0E8A16" 2>/dev/null || true
           gh pr edit ${{ github.event.pull_request.number }} \
             --add-label "ready-to-merge"
         env:
