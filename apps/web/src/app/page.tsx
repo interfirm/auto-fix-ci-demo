@@ -34,7 +34,7 @@ export default function Home() {
 
       <h2 style={{ marginTop: '2rem' }}>Users</h2>
       {mockUsers.map((user) => (
-        <UserCard key={user.id} user={user} onDelete={(id) => console.log('delete', id)} />
+        <UserCard key={user.id} user={user} onDelete={(id: number) => console.log('delete', id)} />
       ))}
 
       <div style={{ marginTop: '2rem' }}>
