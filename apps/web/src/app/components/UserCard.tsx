@@ -1,41 +1,41 @@
-"use client";
+'use client'
 
-import { useState } from "react";
+import { useState } from 'react'
 
 export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
+  id: string
+  name: string
+  email: string
+  avatar?: string
 }
 
 interface UserCardProps {
-  user: User;
-  onSelect?: (user: User) => void;
+  user: User
+  onSelect?: (user: User) => void
 }
 
 export function UserCard({ user, onSelect }: UserCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [isHovered, setIsHovered] = useState(false)
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
+    setIsHovered(true)
+  }
 
   const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
+    setIsHovered(false)
+  }
 
   const handleClick = () => {
     if (onSelect) {
-      onSelect(user);
+      onSelect(user)
     }
-  };
+  }
 
   const initials = user.name
-    .split(" ")
+    .split(' ')
     .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+    .join('')
+    .toUpperCase()
 
   return (
     <div
@@ -46,18 +46,14 @@ export function UserCard({ user, onSelect }: UserCardProps) {
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          handleClick();
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleClick()
         }
       }}
     >
       <div className="flex items-center gap-3">
         {user.avatar ? (
-          <img
-            src={user.avatar}
-            alt={user.name}
-            className="h-12 w-12 rounded-full object-cover"
-          />
+          <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500 text-white">
             <span className="text-sm font-semibold">{initials}</span>
@@ -71,11 +67,9 @@ export function UserCard({ user, onSelect }: UserCardProps) {
 
       {isHovered && (
         <div className="rounded bg-blue-50 p-3">
-          <p className="text-xs text-gray-700">
-            Click to select this user
-          </p>
+          <p className="text-xs text-gray-700">Click to select this user</p>
         </div>
       )}
     </div>
-  );
+  )
 }
