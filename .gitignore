@@ -30,3 +30,11 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 *.tsbuildinfo
+
+# Review collector data (keep vectors.json for build)
+tools/review-collector/data/reviews_raw.jsonl
+tools/review-collector/data/reviews_filtered.jsonl
+tools/review-collector/data/reviews_rejected.jsonl
+
+# Binary (commit after build)
+# bin/reviewer
