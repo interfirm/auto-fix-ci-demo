@@ -1,25 +1,30 @@
-/**
- * DEMO: This file contains intentional errors for demonstration
- * Remove or fix before production use
- */
-
-// ERROR 1: Unused variable (ESLint error)
-const unusedVariable = 'this is not used'
-
-// ERROR 2: Type error - string vs number
-export function calculateTotal(items: { price: number; quantity: number }[]): number {
-  return items.reduce((sum, item) => {
-    // Type error: returning string instead of number
-    return sum + (item.price * item.quantity).toString()
-  }, 0)
+export const calculateTotal = (items: { price: number; quantity: number }[]) => {
+  // This will fail because the function returns string concatenation instead of number
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  return String(total)
 }
 
-// ERROR 3: Missing return type annotation (if strict)
-export function processData(data) {
-  return data.map((d) => d.value * 2)
+export const complexFunction = () => {
+  return {
+    a: 1,
+    b: 2,
+  }
 }
 
-// ERROR 4: Potential runtime error - accessing undefined
-export function getUserName(user: { name?: string }): string {
-  return user.name.toUpperCase() // name might be undefined!
+export const iReturnVoid = (): void => {
+  console.log('hello')
+}
+
+export const getUserName = (user: { name?: string }) => {
+  // This will throw runtime error
+  return user.name?.toUpperCase()
+}
+
+export const brokenApiCall = async (data: any) => {
+  const result = await fetch('https://google.com', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+  return await result.json().then((d: any) => d)
 }

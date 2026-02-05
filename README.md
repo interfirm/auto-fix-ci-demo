@@ -38,11 +38,11 @@ ANTHROPIC_API_KEY=xxx OPENAI_API_KEY=xxx REVIEWER_SALT=xxx \
 
 必要な環境変数 / GitHub Secrets:
 
-| 変数 | 説明 |
-|------|------|
-| `ANTHROPIC_API_KEY` | Claude API Key |
-| `OPENAI_API_KEY` | OpenAI API Key (embedding用) |
-| `REVIEWER_SALT` | レビュアー認証キー |
+| 変数                | 説明                         |
+| ------------------- | ---------------------------- |
+| `ANTHROPIC_API_KEY` | Claude API Key               |
+| `OPENAI_API_KEY`    | OpenAI API Key (embedding用) |
+| `REVIEWER_SALT`     | レビュアー認証キー           |
 
 ### 構想: staging自動割当
 
@@ -50,15 +50,15 @@ PRごとにpreview環境を自動割当し、複数PRの並列検証を可能に
 
 ## 技術スタック
 
-| カテゴリ | 技術 |
-|----------|------|
-| モノレポ | Turborepo |
-| フレームワーク | Next.js |
-| 言語 | TypeScript |
-| テスト | Vitest |
-| AI (レビュー) | Claude Opus 4 + OpenAI Embedding |
-| AI (修正) | Gemini |
-| CI/CD | GitHub Actions |
+| カテゴリ       | 技術                             |
+| -------------- | -------------------------------- |
+| モノレポ       | Turborepo                        |
+| フレームワーク | Next.js                          |
+| 言語           | TypeScript                       |
+| テスト         | Vitest                           |
+| AI (レビュー)  | Claude Opus 4 + OpenAI Embedding |
+| AI (修正)      | Gemini                           |
+| CI/CD          | GitHub Actions                   |
 
 ## Contributing
 
