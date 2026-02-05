@@ -31,7 +31,7 @@ export const brokenApiCall = async (data: any) => {
 
 // 型エラー: numberにstring代入
 export const brokenTypes = (): number => {
-  const x: number = "hello"
+  const x: number = 'hello'
   return x
 }
 
