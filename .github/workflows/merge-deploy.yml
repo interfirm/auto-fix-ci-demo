@@ -1,0 +1,74 @@
+name: Merge & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ============================================
+  # Final Validation on Main
+  # ============================================
+  validate:
+    name: Final Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: TypeCheck
+        run: pnpm turbo typecheck
+
+      - name: Lint
+        run: pnpm turbo lint
+
+      - name: Test
+        run: pnpm turbo test:ci
+
+      - name: Build
+        run: pnpm turbo build
+
+  # ============================================
+  # Notify Merge Success
+  # ============================================
+  notify:
+    name: Notify Merge
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR Number
+        id: pr_number
+        run: |
+          PR_NUM=$(echo "${{ github.event.head_commit.message }}" | grep -oP '#\d+' | head -1 | tr -d '#')
+          echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+
+      - name: Notify PR
+        if: steps.pr_number.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.pr_number.outputs.pr_number }}');
+
+            if (prNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: `🚀 **Deployed to Production!**
+
+                Commit: \`${{ github.sha }}\`
+
+                All validations passed and changes are now live.
+                `
+              });
+            }

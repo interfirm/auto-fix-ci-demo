@@ -1,0 +1,391 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  MAX_AUTO_FIX_ATTEMPTS: 3
+
+jobs:
+  # ============================================
+  # Stage 1: Quality Checks
+  # ============================================
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    outputs:
+      typecheck_status: ${{ steps.typecheck.outcome }}
+      lint_status: ${{ steps.lint.outcome }}
+      test_status: ${{ steps.test.outcome }}
+      has_errors: ${{ steps.check_errors.outputs.has_errors }}
+      error_log: ${{ steps.collect_errors.outputs.error_log }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: TypeCheck
+        id: typecheck
+        continue-on-error: true
+        run: pnpm turbo typecheck 2>&1 | tee typecheck.log
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: pnpm turbo lint 2>&1 | tee lint.log
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: pnpm turbo test:ci 2>&1 | tee test.log
+
+      - name: Collect Errors
+        id: collect_errors
+        run: |
+          cat typecheck.log lint.log test.log > all_errors.log
+          echo "error_log<<EOF" >> $GITHUB_OUTPUT
+          cat all_errors.log >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check for Errors
+        id: check_errors
+        run: |
+          if [ "${{ steps.typecheck.outcome }}" == "failure" ] || \
+             [ "${{ steps.lint.outcome }}" == "failure" ] || \
+             [ "${{ steps.test.outcome }}" == "failure" ]; then
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Error Logs
+        if: steps.check_errors.outputs.has_errors == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-logs
+          path: |
+            typecheck.log
+            lint.log
+            test.log
+            all_errors.log
+
+  # ============================================
+  # Stage 2: Auto Fix (if quality fails)
+  # ============================================
+  auto-fix:
+    name: AI Auto Fix
+    needs: quality
+    if: needs.quality.outputs.has_errors == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      fix_applied: ${{ steps.apply_fix.outputs.fix_applied }}
+      attempt_count: ${{ steps.check_attempts.outputs.attempt_count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+
+      - name: Check Auto-Fix Attempts
+        id: check_attempts
+        run: |
+          # Count existing attempt labels
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q '.labels[].name')
+          ATTEMPT=0
+          for i in 1 2 3; do
+            if echo "$LABELS" | grep -q "auto-fix-attempt-$i"; then
+              ATTEMPT=$i
+            fi
+          done
+          NEXT_ATTEMPT=$((ATTEMPT + 1))
+          echo "attempt_count=$NEXT_ATTEMPT" >> $GITHUB_OUTPUT
+
+          if [ $NEXT_ATTEMPT -gt ${{ env.MAX_AUTO_FIX_ATTEMPTS }} ]; then
+            echo "max_reached=true" >> $GITHUB_OUTPUT
+          else
+            echo "max_reached=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip if Max Attempts Reached
+        if: steps.check_attempts.outputs.max_reached == 'true'
+        run: |
+          echo "Maximum auto-fix attempts (${{ env.MAX_AUTO_FIX_ATTEMPTS }}) reached."
+          echo "Manual intervention required."
+          exit 0
+
+      - uses: pnpm/action-setup@v3
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        run: pnpm install
+
+      - name: Download Error Logs
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: error-logs
+
+      - name: Try ESLint Auto-Fix First
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        continue-on-error: true
+        run: |
+          pnpm turbo lint:fix || true
+          pnpm format || true
+
+      - name: AI Fix
+        id: ai_fix
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        continue-on-error: true
+        run: |
+          chmod +x ./scripts/ai-fix.sh
+          ./scripts/ai-fix.sh all_errors.log
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Check for Changes
+        id: check_changes
+        if: steps.check_attempts.outputs.max_reached == 'false'
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and Push Fixes
+        id: apply_fix
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: auto-fix by AI (attempt ${{ steps.check_attempts.outputs.attempt_count }})"
+          git push
+          echo "fix_applied=true" >> $GITHUB_OUTPUT
+
+      - name: Add Attempt Label
+        if: steps.apply_fix.outputs.fix_applied == 'true'
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --add-label "auto-fix-attempt-${{ steps.check_attempts.outputs.attempt_count }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Stage 3: AI Review (if quality passes)
+  # ============================================
+  ai-review:
+    name: AI Code Review
+    needs: quality
+    if: needs.quality.outputs.has_errors == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Diff
+        id: get_diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+          echo "diff_size=$(wc -c < diff.txt)" >> $GITHUB_OUTPUT
+
+      - name: Run AI Review
+        if: steps.get_diff.outputs.diff_size != '0'
+        id: review
+        run: |
+          chmod +x ./scripts/ai-review.sh
+          ./scripts/ai-review.sh diff.txt review.md
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Post Review Comment
+        if: steps.get_diff.outputs.diff_size != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review.md', 'utf8');
+
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('<!-- ai-review-comment -->')
+            );
+
+            const body = `<!-- ai-review-comment -->
+            ## 🤖 AI Code Review
+
+            ${review}
+
+            ---
+            *Powered by Gemini API*
+            `;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # ============================================
+  # Stage 4: Status Report
+  # ============================================
+  status-report:
+    name: Pipeline Status
+    needs: [quality, auto-fix, ai-review]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR Status Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const quality = '${{ needs.quality.result }}';
+            const hasErrors = '${{ needs.quality.outputs.has_errors }}';
+            const autoFix = '${{ needs.auto-fix.result }}';
+            const aiReview = '${{ needs.ai-review.result }}';
+
+            let status = '';
+            let emoji = '';
+
+            if (hasErrors === 'false') {
+              status = '✅ All checks passed';
+              emoji = '🎉';
+            } else if (autoFix === 'success') {
+              status = '🔄 Auto-fix applied, waiting for re-run';
+              emoji = '🤖';
+            } else {
+              status = '❌ Checks failed, manual fix required';
+              emoji = '⚠️';
+            }
+
+            const body = `<!-- pipeline-status-comment -->
+            ## ${emoji} Pipeline Status
+
+            | Stage | Status |
+            |-------|--------|
+            | TypeCheck | ${{ needs.quality.outputs.typecheck_status == 'success' && '✅' || '❌' }} |
+            | Lint | ${{ needs.quality.outputs.lint_status == 'success' && '✅' || '❌' }} |
+            | Test | ${{ needs.quality.outputs.test_status == 'success' && '✅' || '❌' }} |
+            | AI Review | ${aiReview === 'success' ? '✅' : aiReview === 'skipped' ? '⏭️' : '❌'} |
+
+            **Status**: ${status}
+
+            ---
+            ${hasErrors === 'false' ? '🚀 Ready to merge!' : ''}
+            `;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('<!-- pipeline-status-comment -->')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # ============================================
+  # Stage 5: Notify on Merge Ready
+  # ============================================
+  notify-ready:
+    name: Notify Merge Ready
+    needs: [quality, ai-review]
+    if: needs.quality.outputs.has_errors == 'false' && needs.ai-review.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove Attempt Labels
+        run: |
+          for i in 1 2 3; do
+            gh pr edit ${{ github.event.pull_request.number }} \
+              --remove-label "auto-fix-attempt-$i" 2>/dev/null || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Ready Label
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --add-label "ready-to-merge"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify PR Author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🎉 @${pr.user.login} Your PR is ready to merge!
+
+              All quality checks have passed and the AI review is complete.
+
+              **Next steps:**
+              - Review the AI feedback above
+              - Merge when ready
+              `
+            });
