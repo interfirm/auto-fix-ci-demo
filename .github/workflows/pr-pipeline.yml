@@ -42,17 +42,23 @@ jobs:
       - name: TypeCheck
         id: typecheck
         continue-on-error: true
-        run: pnpm turbo typecheck 2>&1 | tee typecheck.log
+        run: |
+          set -o pipefail
+          pnpm turbo typecheck 2>&1 | tee typecheck.log
 
       - name: Lint
         id: lint
         continue-on-error: true
-        run: pnpm turbo lint 2>&1 | tee lint.log
+        run: |
+          set -o pipefail
+          pnpm turbo lint 2>&1 | tee lint.log
 
       - name: Test
         id: test
         continue-on-error: true
-        run: pnpm turbo test:ci 2>&1 | tee test.log
+        run: |
+          set -o pipefail
+          pnpm turbo test:ci 2>&1 | tee test.log
 
       - name: Collect Errors
         id: collect_errors
