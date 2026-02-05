@@ -11,5 +11,5 @@ export const complexFunction = () => {
 }
 
 export const getUserName = (user: { name?: string }) => {
-  return user.name?.toUpperCase() ?? "Unknown"
+  return user.name?.toUpperCase() ?? 'Unknown'
 }

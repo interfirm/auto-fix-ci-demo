@@ -3,9 +3,27 @@ import { formatDate } from '@/lib/utils'
 import UserCard from './components/UserCard'
 
 const mockUsers = [
-  { id: 1, name: "田中太郎", email: "tanaka@example.com", role: "admin" as const, createdAt: new Date("2024-01-15") },
-  { id: 2, name: "鈴木花子", email: "suzuki@example.com", role: "editor" as const, createdAt: new Date("2024-03-20") },
-  { id: 3, name: "佐藤次郎", email: "sato@example.com", role: "viewer" as const, createdAt: new Date("2024-06-01") },
+  {
+    id: 1,
+    name: '田中太郎',
+    email: 'tanaka@example.com',
+    role: 'admin' as const,
+    createdAt: new Date('2024-01-15'),
+  },
+  {
+    id: 2,
+    name: '鈴木花子',
+    email: 'suzuki@example.com',
+    role: 'editor' as const,
+    createdAt: new Date('2024-03-20'),
+  },
+  {
+    id: 3,
+    name: '佐藤次郎',
+    email: 'sato@example.com',
+    role: 'viewer' as const,
+    createdAt: new Date('2024-06-01'),
+  },
 ]
 
 export default function Home() {
