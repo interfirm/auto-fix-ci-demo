@@ -1,39 +1,47 @@
 {
   "name": "@interfirm/ui",
   "version": "0.1.0",
-  "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
+  "description": "",
+  "keywords": [],
+  "author": "Interfirm",
+  "license": "ISC",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsup src/index.tsx --format esm,cjs --dts",
+    "dev": "tsup src/index.tsx --format esm,cjs --dts --watch",
     "lint": "eslint . --max-warnings 0",
-    "lint:fix": "eslint . --fix",
+    "clean": "rm -rf dist .turbo",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:ci": "vitest run --coverage"
-  },
-  "dependencies": {
-    "react": "^18.2.0"
+    "test:ci": "vitest run --coverage",
+    "test": "vitest"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.4.0",
-    "@testing-library/react": "^14.2.0",
-    "@types/react": "^18.2.0",
-    "@vitejs/plugin-react": "^4.2.0",
-    "@vitest/coverage-v8": "^1.2.0",
-    "eslint": "^8.56.0",
-    "eslint-plugin-react": "^7.33.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "jsdom": "^24.0.0",
-    "typescript": "^5.3.0",
-    "vitest": "^1.2.0"
+    "@interfirm/eslint-config": "workspace:*",
+    "@interfirm/tsconfig": "workspace:*",
+    "@testing-library/react": "^14.2.1",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.2",
+    "vitest": "^1.6.1"
   },
-  "peerDependencies": {
-    "react": "^18.2.0"
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.0.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.0.0",
+    "lucide-react": "^0.294.0",
+    "tailwind-merge": "^2.1.0",
+    "tailwindcss-animate": "^1.0.7"
   }
 }
