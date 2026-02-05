@@ -2,74 +2,89 @@
 
 import { useState } from 'react'
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  avatar?: string
-}
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface UserCardProps {
-  user: User
-  onSelect?: (user: User) => void
+  user: any
+  onDelete: any
 }
 
-export function UserCard({ user, onSelect }: UserCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
-
-  const handleMouseEnter = () => {
-    setIsHovered(true)
+const getRoleBadgeColor = (role: any): any => {
+  switch (role) {
+    case 'admin':
+      return '#e74c3c'
+    case 'editor':
+      return '#3498db'
+    default:
+      return '#95a5a6'
   }
+}
 
-  const handleMouseLeave = () => {
-    setIsHovered(false)
+export default function UserCard({ user, onDelete }: UserCardProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(user.name)
+
+  const formattedDate = (user as any).createdAt?.toISOString?.() ?? String(user.createdAt)
+
+  const handleSave = async () => {
+    const res = await fetch('/api/users/' + user.id, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: editName }),
+    })
+    const data = await res.json()
+    console.log(data)
+    setIsEditing(false)
   }
-
-  const handleClick = () => {
-    if (onSelect) {
-      onSelect(user)
-    }
-  }
-
-  const initials = user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
 
   return (
     <div
-      className="relative flex flex-col gap-2 rounded-lg border border-gray-200 p-4 shadow-sm transition-shadow hover:shadow-md"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          handleClick()
-        }
+      style={{
+        border: '1px solid #ddd',
+        borderRadius: '8px',
+        padding: '1rem',
+        marginBottom: '1rem',
       }}
     >
-      <div className="flex items-center gap-3">
-        {user.avatar ? (
-          <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500 text-white">
-            <span className="text-sm font-semibold">{initials}</span>
-          </div>
-        )}
-        <div className="flex flex-col gap-1">
-          <h3 className="font-semibold text-gray-900">{user.name}</h3>
-          <p className="text-sm text-gray-600">{user.email}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          {isEditing ? (
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: '4px' }}
+            />
+          ) : (
+            <strong>{user.name}</strong>
+          )}
+          <span
+            style={{
+              marginLeft: '8px',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              color: '#fff',
+              backgroundColor: getRoleBadgeColor(user.role),
+              fontSize: '0.75rem',
+            }}
+          >
+            {user.role}
+          </span>
+        </div>
+        <div>
+          {isEditing ? (
+            <button onClick={handleSave} style={{ marginRight: '4px' }}>
+              Save
+            </button>
+          ) : (
+            <button onClick={() => setIsEditing(true)} style={{ marginRight: '4px' }}>
+              Edit
+            </button>
+          )}
+          <button onClick={() => onDelete(user.id)} style={{ color: '#e74c3c' }}>
+            Delete
+          </button>
         </div>
       </div>
-
-      {isHovered && (
-        <div className="rounded bg-blue-50 p-3">
-          <p className="text-xs text-gray-700">Click to select this user</p>
-        </div>
-      )}
+      <p style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.5rem' }}>{user.email}</p>
+      <p style={{ color: '#999', fontSize: '0.75rem' }}>Joined: {formattedDate}</p>
     </div>
   )
 }
