@@ -21,8 +21,6 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "@interfirm/eslint-config": "workspace:*",
-    "@interfirm/tsconfig": "workspace:*",
     "@testing-library/react": "^14.2.1",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
